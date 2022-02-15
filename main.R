@@ -15,36 +15,69 @@ df <- data.frame(x,y,t, stringsAsFactors = F)
 plot.figure(df)
 
 
-step_1_res <- step_1(df)
+step_1_res <- step_1(df, plot = T)
 
 step_2_res <- step_2(df, plot = T)
+
+# step_3_res: polygons combinations,  split into groups according to number of polygons in the combination (1, 2, 3, ...)
+#  [[1]] : list of dfs containing the combination's polygons coordinates
+#  [[2]] : list of vectors containing the combination's polygons IDs
+#  [[3]] : list of vectors containing the width of the polygon combination (weight of each element in [[2]])
 step_3_res <- step_3(df, step_2_res = step_2_res)
 
+# weight: width of each combination
 weight <- (step_3_res[[3]] %>% unlist(recursive = F) %>% do.call(rbind,.))
-sub.list <- step_3_res[[2]] %>% unlist(recursive = F)
+sub.list <- step_3_res[[2]] %>% unlist(recursive = F) # same as step_3_res[[2]] but as a single list of vectors
+# a: matrix: columns: subpolygons, rows: combinations, element[col][row]: 1 if subpolygon col is in combination row
 a <- lapply(sub.list, function(x){
-  a <- rep(0,length(step_3_res[[1]][[1]]))
+  a <- rep(0,length(step_3_res[[1]][[1]]))  # step_3_res[[1]][[1]] = list of combinations of single polygon => length(step_3_res[[1]][[1]]) = number of sub polygons
   a[x] <- 1
   a
 }) %>% do.call(rbind,.)
 
+
 ## Step 4
-library(gurobi)
+## --- GLPK ---
+library(Rglpk)
+obj <- weight %>% as.vector()   # object function
+mat <- a %>% as.matrix() %>% t()   # constraints left hand side
+rhs <- rep(1,ncol(a))  # constraints right hand side
+max <- FALSE  # minimize
+dir <- rep('==',ncol(a))  # operators in the constraints (=, <=, <, > , >=)
+types <- rep("B",ncol(a))   # all variables are binary
 
-model <- list()
+# result: df
+#   solution: the chosen subpolygons combinations
+result <- Rglpk_solve_LP(obj, mat, dir, rhs, max = max)
 
-model$A          <- a %>% as.matrix() %>% t()
-model$obj        <- weight %>% as.vector()
-model$modelsense <- 'min'
-model$rhs        <- rep(1,ncol(a))
-model$sense      <- rep('=',ncol(a))
-model$vtype      <- 'B'
+subpolygons.list = step_3_res[[1]] %>% unlist(recursive = F)
+subpolygons_optimal <-subpolygons.list[result$solution==1]
 
-params <- list(OutputFlag=0, PoolSearchMode=2)
+print(result)
+print("chosen combinations")
+print(sub.list[result$solution==1]) # get the chosen combinations of subpolygons
+print("chosen polygons")
+print(subpolygons_optimal)
 
-result <- gurobi(model, params)
+plot.figure.subpoly(subpolygons_optimal)
 
-print('Solution:')
-print(result$objval)
-print(result$x)
+# objval## --- gurobi ---
+# library(gurobi)
+
+# model <- list()
+
+# model$A          <- a %>% as.matrix() %>% t()  # constraints left hand side
+# model$obj        <- weight %>% as.vector()  # object function
+# model$modelsense <- 'min'
+# model$rhs        <- rep(1,ncol(a))  # constraints right hand side
+# model$sense      <- rep('=',ncol(a))  # operators in the constraints (=, <=, <, > , >=)
+# model$vtype      <- 'B'  # all variables are binary
+
+# params <- list(OutputFlag=0, PoolSearchMode=2)
+
+# result <- gurobi(model, params)
+
+# print('Solution:')
+# print(result$objval)
+# print(result$x)
 
