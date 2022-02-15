@@ -10,6 +10,8 @@ t <- c("P","P","P","P","P","P","P","P","O","O","O","O","O","O","O")
 # y <- c(0,0,1.5,2,2,4,4,2.5,2.5,3.5,3.5,2.5 )
 # t <- c("P","P","P","P","P","P","P","P","O","O","O","O")
 
+# source this to overwrite (x, y, t) to a desired map
+source('maps.R')
 
 df <- data.frame(x,y,t, stringsAsFactors = F)
 plot.figure(df)
